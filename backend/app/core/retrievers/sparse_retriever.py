@@ -1,12 +1,13 @@
 """Sparse retriever using BM25 algorithm."""
 
 import re
-from typing import List
+from typing import List, Optional
 
 from rank_bm25 import BM25Okapi
 from llama_index.core.schema import TextNode
 
 from app.core.retrievers.base import BaseRetriever, NodeWithScore
+from app.core.cache.bm25_cache import BM25IndexCache
 
 
 class BM25Retriever(BaseRetriever):
@@ -16,12 +17,17 @@ class BM25Retriever(BaseRetriever):
     BM25 is a probabilistic ranking function that scores documents based on
     query term frequency and document length. It's effective for exact keyword
     matching and term frequency-based retrieval.
+
+    This retriever supports caching of the BM25 index to disk for faster
+    subsequent loads.
     """
 
     def __init__(
         self,
         k1: float = 1.5,
         b: float = 0.75,
+        cache_enabled: bool = True,
+        cache_dir: Optional[str] = None,
     ):
         """
         Initialize BM25 retriever.
@@ -31,12 +37,19 @@ class BM25Retriever(BaseRetriever):
                 (higher = more saturation, default: 1.5)
             b: BM25 parameter controlling document length normalization
                 (0-1, default: 0.75)
+            cache_enabled: Whether to enable index caching (default: True)
+            cache_dir: Directory for cache files (default: .bm25_cache)
         """
         self.k1 = k1
         self.b = b
         self._nodes: List[TextNode] = []
         self._tokenized_corpus: List[List[str]] = []
         self._bm25: BM25Okapi = None
+        self._cache_enabled = cache_enabled
+        self._cache: Optional[BM25IndexCache] = None
+
+        if cache_enabled:
+            self._cache = BM25IndexCache(cache_dir=cache_dir or ".bm25_cache")
 
     def _tokenize(self, text: str) -> List[str]:
         """
@@ -57,12 +70,26 @@ class BM25Retriever(BaseRetriever):
         """
         Add documents to the retriever.
 
+        This method will first attempt to load from cache. If cache miss,
+        it will build the index from scratch and save to cache.
+
         Args:
             nodes: List of text nodes to add
         """
         if not nodes:
             return
 
+        # Try to load from cache first
+        if self._cache_enabled and self._cache:
+            cached_result = self._cache.load(nodes, k1=self.k1, b=self.b)
+            if cached_result:
+                retriever, loaded_nodes = cached_result
+                self._nodes = retriever._nodes
+                self._tokenized_corpus = retriever._tokenized_corpus
+                self._bm25 = retriever._bm25
+                return
+
+        # Build index from scratch
         # Add to node list
         self._nodes.extend(nodes)
 
@@ -74,6 +101,10 @@ class BM25Retriever(BaseRetriever):
         # Rebuild BM25 index
         if self._tokenized_corpus:
             self._bm25 = BM25Okapi(self._tokenized_corpus, k1=self.k1, b=self.b)
+
+        # Save to cache
+        if self._cache_enabled and self._cache:
+            self._cache.save(self, nodes, k1=self.k1, b=self.b)
 
     def retrieve(self, query: str, top_k: int = 10) -> List[NodeWithScore]:
         """
@@ -107,11 +138,19 @@ class BM25Retriever(BaseRetriever):
 
         return results
 
-    def clear(self) -> None:
-        """Clear all documents from the retriever."""
+    def clear(self, clear_cache: bool = False) -> None:
+        """
+        Clear all documents from the retriever.
+
+        Args:
+            clear_cache: Whether to clear cached indices (default: False)
+        """
         self._nodes.clear()
         self._tokenized_corpus.clear()
         self._bm25 = None
+
+        if clear_cache and self._cache:
+            self._cache.clear_cache()
 
     @property
     def is_empty(self) -> bool:
@@ -122,3 +161,14 @@ class BM25Retriever(BaseRetriever):
     def document_count(self) -> int:
         """Get the number of documents."""
         return len(self._nodes)
+
+    def get_cache_stats(self) -> dict:
+        """
+        Get cache statistics.
+
+        Returns:
+            Dictionary with cache stats, or empty dict if caching disabled
+        """
+        if self._cache:
+            return self._cache.get_cache_stats()
+        return {}
