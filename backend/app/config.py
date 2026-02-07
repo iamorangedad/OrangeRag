@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     sparse_top_k: int = Field(default=10, alias="SPARSE_TOP_K")
     final_top_k: int = Field(default=5, alias="FINAL_TOP_K")
 
+    # Cache Configuration
+    bm25_cache_enabled: bool = Field(default=True, alias="BM25_CACHE_ENABLED")
+    bm25_cache_dir: Optional[str] = Field(default=None, alias="BM25_CACHE_DIR")
+
+    # Fusion Configuration
+    fusion_mode: str = Field(default="rrf", alias="FUSION_MODE")  # "rrf" or "weighted"
+
     # Reranking Configuration (Phase 3)
     enable_rerank: bool = Field(default=False, alias="ENABLE_RERANK")
     rerank_model: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2", alias="RERANK_MODEL")

@@ -129,8 +129,15 @@ class HybridChatService(ChatService):
             sparse_top_k=settings.sparse_top_k,
             final_top_k=settings.final_top_k,
             rrf_k=settings.rrf_k,
-            cache_enabled=True,
-            cache_dir=os.path.join(settings.chroma_dir, "bm25_cache"),
+            cache_enabled=settings.bm25_cache_enabled,
+            cache_dir=settings.bm25_cache_dir or os.path.join(settings.chroma_dir, "bm25_cache"),
+        )
+
+        # Configure fusion weights and mode
+        retriever.set_fusion_weights(
+            dense_weight=settings.dense_weight,
+            sparse_weight=settings.sparse_weight,
+            mode=settings.fusion_mode,
         )
 
         # Load and index documents
