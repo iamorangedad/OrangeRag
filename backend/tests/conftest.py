@@ -1,12 +1,13 @@
 """Pytest configuration for the project."""
+
 import os
 import sys
 import pytest
 from pathlib import Path
 
-# Add the backend directory to the path
-backend_dir = Path(__file__).parent.parent / "backend"
-sys.path.insert(0, str(backend_dir))
+# Add the backend/app directory to the path for imports
+app_dir = Path(__file__).parent.parent / "app"
+sys.path.insert(0, str(app_dir))
 
 # Set test environment variables
 os.environ.setdefault("TESTING", "true")
@@ -54,7 +55,7 @@ def sample_long_text():
     """Sample long text for chunking tests."""
     paragraphs = []
     for i in range(50):
-        paragraphs.append(f"Paragraph {i+1}: " + "This is a test sentence. " * 20)
+        paragraphs.append(f"Paragraph {i + 1}: " + "This is a test sentence. " * 20)
     return "\n\n".join(paragraphs)
 
 
@@ -68,3 +69,31 @@ def mock_embedding():
 def mock_embeddings_list():
     """List of mock embeddings for batch testing."""
     return [[0.1] * 768 for _ in range(10)]
+
+
+@pytest.fixture
+def mock_ollama_response():
+    """Mock Ollama LLM response."""
+    return {
+        "response": "This is a mock response from Ollama",
+        "done": True,
+    }
+
+
+@pytest.fixture
+def sample_documents():
+    """Sample documents for retrieval testing."""
+    return [
+        {"id": f"doc_{i}", "content": f"Document {i} content about Python programming"} * 10}
+        for i in range(5)
+    ]
+
+
+@pytest.fixture
+def sample_queries():
+    """Sample queries for testing."""
+    return [
+        "How to use Python decorators?",
+        "What are list comprehensions?",
+        "Explain async/await in Python",
+    ]
