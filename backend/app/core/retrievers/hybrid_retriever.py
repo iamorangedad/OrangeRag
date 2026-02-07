@@ -9,7 +9,10 @@ from llama_index.core.embeddings import BaseEmbedding
 from app.core.retrievers.base import BaseRetriever, NodeWithScore
 from app.core.retrievers.dense_retriever import DenseRetriever
 from app.core.retrievers.sparse_retriever import BM25Retriever
-from app.core.fusion.rrf_fusion import reciprocal_rank_fusion
+from app.core.fusion.rrf_fusion import (
+    reciprocal_rank_fusion,
+    weighted_reciprocal_rank_fusion,
+)
 
 
 class HybridRetriever(BaseRetriever):
@@ -72,6 +75,48 @@ class HybridRetriever(BaseRetriever):
         self.sparse_top_k = sparse_top_k
         self.final_top_k = final_top_k
         self.rrf_k = rrf_k
+        self.dense_weight = 0.5
+        self.sparse_weight = 0.5
+        self.fusion_mode = "rrf"  # Options: "rrf", "weighted"
+
+    def set_fusion_weights(
+        self, dense_weight: float, sparse_weight: float, mode: str = "weighted"
+    ) -> None:
+        """
+        Set fusion weights for dense and sparse retrieval.
+
+        Args:
+            dense_weight: Weight for dense retrieval results (0-1)
+            sparse_weight: Weight for sparse retrieval results (0-1)
+            mode: Fusion mode - "rrf" or "weighted" (default: "weighted")
+        """
+        if mode not in ["rrf", "weighted"]:
+            raise ValueError(f"Invalid fusion mode: {mode}. Must be 'rrf' or 'weighted'")
+        if not (0 <= dense_weight <= 1 and 0 <= sparse_weight <= 1):
+            raise ValueError("Weights must be between 0 and 1")
+        self.dense_weight = dense_weight
+        self.sparse_weight = sparse_weight
+        self.fusion_mode = mode
+
+    def _fuse_results(self, dense_results: list, sparse_results: list) -> list:
+        """
+        Fuse results using configured fusion method.
+
+        Args:
+            dense_results: Results from dense retrieval
+            sparse_results: Results from sparse retrieval
+
+        Returns:
+            Fused results
+        """
+        if self.fusion_mode == "weighted":
+            return weighted_reciprocal_rank_fusion(
+                [dense_results, sparse_results],
+                [self.dense_weight, self.sparse_weight],
+                k=self.rrf_k,
+            )
+        else:
+            return reciprocal_rank_fusion([dense_results, sparse_results], k=self.rrf_k)
 
     def add_documents(self, nodes: List[TextNode]) -> None:
         """
@@ -110,8 +155,8 @@ class HybridRetriever(BaseRetriever):
         dense_results = self.dense_retriever.retrieve(query, top_k=self.dense_top_k)
         sparse_results = self.sparse_retriever.retrieve(query, top_k=self.sparse_top_k)
 
-        # Fuse results using RRF
-        fused_results = reciprocal_rank_fusion([dense_results, sparse_results], k=self.rrf_k)
+        # Fuse results using configured fusion method
+        fused_results = self._fuse_results(dense_results, sparse_results)
 
         # Return top-k results
         return fused_results[:final_k]
@@ -145,8 +190,8 @@ class HybridRetriever(BaseRetriever):
         # Wait for both to complete
         dense_results, sparse_results = await asyncio.gather(dense_task, sparse_task)
 
-        # Fuse results using RRF
-        fused_results = reciprocal_rank_fusion([dense_results, sparse_results], k=self.rrf_k)
+        # Fuse results using configured fusion method
+        fused_results = self._fuse_results(dense_results, sparse_results)
 
         return fused_results[:final_k]
 
