@@ -78,6 +78,16 @@ class HybridRetriever(BaseRetriever):
         self.dense_weight = 0.5
         self.sparse_weight = 0.5
         self.fusion_mode = "rrf"  # Options: "rrf", "weighted"
+        self._reranker = None
+
+    def set_reranker(self, reranker) -> None:
+        """
+        Set an optional reranker for post-fusion reranking.
+
+        Args:
+            reranker: A reranker instance (e.g., CrossEncoderReranker)
+        """
+        self._reranker = reranker
 
     def set_fusion_weights(
         self, dense_weight: float, sparse_weight: float, mode: str = "weighted"
@@ -158,6 +168,10 @@ class HybridRetriever(BaseRetriever):
         # Fuse results using configured fusion method
         fused_results = self._fuse_results(dense_results, sparse_results)
 
+        # Apply reranking if configured
+        if self._reranker:
+            fused_results = self._reranker.rerank(query, fused_results, top_k=final_k)
+
         # Return top-k results
         return fused_results[:final_k]
 
@@ -192,6 +206,10 @@ class HybridRetriever(BaseRetriever):
 
         # Fuse results using configured fusion method
         fused_results = self._fuse_results(dense_results, sparse_results)
+
+        # Apply reranking if configured
+        if self._reranker:
+            fused_results = self._reranker.rerank(query, fused_results, top_k=final_k)
 
         return fused_results[:final_k]
 
