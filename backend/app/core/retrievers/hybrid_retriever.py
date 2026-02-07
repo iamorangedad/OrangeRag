@@ -46,6 +46,8 @@ class HybridRetriever(BaseRetriever):
         rrf_k: float = 60.0,
         bm25_k1: float = 1.5,
         bm25_b: float = 0.75,
+        cache_enabled: bool = True,
+        cache_dir: Optional[str] = None,
     ):
         """
         Initialize hybrid retriever.
@@ -58,9 +60,13 @@ class HybridRetriever(BaseRetriever):
             rrf_k: RRF constant (default: 60.0)
             bm25_k1: BM25 parameter k1 (default: 1.5)
             bm25_b: BM25 parameter b (default: 0.75)
+            cache_enabled: Whether to enable BM25 index caching (default: True)
+            cache_dir: Directory for BM25 cache files (default: None, uses .bm25_cache)
         """
         self.dense_retriever = DenseRetriever(embed_model=embed_model)
-        self.sparse_retriever = BM25Retriever(k1=bm25_k1, b=bm25_b)
+        self.sparse_retriever = BM25Retriever(
+            k1=bm25_k1, b=bm25_b, cache_enabled=cache_enabled, cache_dir=cache_dir
+        )
 
         self.dense_top_k = dense_top_k
         self.sparse_top_k = sparse_top_k

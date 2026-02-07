@@ -122,13 +122,15 @@ class HybridChatService(ChatService):
             logger.error(f"[HybridChat] Failed to setup embedding model: {e}")
             raise
 
-        # Create hybrid retriever
+        # Create hybrid retriever with cache support
         retriever = HybridRetriever(
             embed_model=embed_model,
             dense_top_k=settings.dense_top_k,
             sparse_top_k=settings.sparse_top_k,
             final_top_k=settings.final_top_k,
             rrf_k=settings.rrf_k,
+            cache_enabled=True,
+            cache_dir=os.path.join(settings.chroma_dir, "bm25_cache"),
         )
 
         # Load and index documents
