@@ -1,0 +1,18 @@
+[run]
+source = app
+omit =
+    */tests/*
+    */test_*
+    */conftest.py
+    */__pycache__/*
+    */.venv/*
+    */.venv-test/*
+
+[report]
+precision = 2
+show_missing = true
+skip_covered = false
+fail_under = 80
+
+[html]
+directory = htmlcov
