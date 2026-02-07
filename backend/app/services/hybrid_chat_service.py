@@ -50,7 +50,46 @@ class HybridChatService(ChatService):
         # Hybrid retriever (will be initialized per conversation)
         self._hybrid_retrievers: Dict[str, HybridRetriever] = {}
 
+        # Query expander (initialized based on config)
+        self._query_expander = None
+        self._init_query_expander()
+
         logger.info("[HybridChat] Initialized HybridChatService")
+
+    def _init_query_expander(self) -> None:
+        """Initialize query expander based on configuration."""
+        settings = get_settings()
+
+        if not settings.enable_query_expansion:
+            return
+
+        try:
+            from app.core.query.expansion import (
+                SynonymExpander,
+                KeywordExpander,
+                HyDEExpander,
+                MultiExpander,
+            )
+
+            expansion_type = settings.query_expansion_type.lower()
+
+            if expansion_type == "synonym":
+                self._query_expander = SynonymExpander(max_expansions=settings.query_expansion_max)
+            elif expansion_type == "keyword":
+                self._query_expander = KeywordExpander()
+            elif expansion_type == "hyde":
+                # HyDE requires LLM, will be initialized lazily
+                self._query_expander = HyDEExpander(llm=None)
+            elif expansion_type == "multi":
+                self._query_expander = MultiExpander()
+            else:
+                logger.warning(f"[HybridChat] Unknown query expansion type: {expansion_type}")
+                return
+
+            logger.info(f"[HybridChat] Initialized {expansion_type} query expander")
+
+        except Exception as e:
+            logger.warning(f"[HybridChat] Failed to initialize query expander: {e}")
 
     def _load_documents(self) -> List[TextNode]:
         """
@@ -185,9 +224,20 @@ class HybridChatService(ChatService):
             # Get hybrid retriever
             retriever = self.get_or_create_hybrid_retriever(conv_id, model_name, embedding_model)
 
+            # Apply query expansion if enabled
+            search_query = message
+            if self._query_expander:
+                expanded_queries = self._query_expander.expand(message)
+                if len(expanded_queries) > 1:
+                    logger.info(
+                        f"[HybridChat] Query expanded to {len(expanded_queries)} variations"
+                    )
+                    # Use the first (likely best) expanded query
+                    search_query = expanded_queries[0]
+
             # Retrieve context using hybrid search
             retrieve_start = time.time()
-            results: List[NodeWithScore] = retriever.retrieve(message)
+            results: List[NodeWithScore] = retriever.retrieve(search_query)
             retrieve_time = time.time() - retrieve_start
 
             logger.info(

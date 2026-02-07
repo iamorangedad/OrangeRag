@@ -59,6 +59,13 @@ class Settings(BaseSettings):
     enable_rerank: bool = Field(default=False, alias="ENABLE_RERANK")
     rerank_model: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2", alias="RERANK_MODEL")
 
+    # Query Expansion Configuration (Phase 3)
+    enable_query_expansion: bool = Field(default=False, alias="ENABLE_QUERY_EXPANSION")
+    query_expansion_type: str = Field(
+        default="synonym", alias="QUERY_EXPANSION_TYPE"
+    )  # "synonym", "keyword", "hyde", "multi"
+    query_expansion_max: int = Field(default=3, alias="QUERY_EXPANSION_MAX")
+
     @property
     def cors_origins(self) -> List[str]:
         """Parse CORS origins from environment variable."""
