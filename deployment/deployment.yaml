@@ -32,11 +32,34 @@ data:
   APP_NAME: "Document Chat API"
   APP_VERSION: "1.0.0"
   DEBUG: "false"
-  
+
   # CORS Configuration
   # Multiple origins: "http://localhost:3000,https://example.com"
   # Empty string allows all origins (not recommended for production)
   ALLOWED_ORIGINS: ""
+
+  # Hybrid RAG Configuration (NEW)
+  ENABLE_HYBRID_SEARCH: "true"
+  DENSE_TOP_K: "10"
+  SPARSE_TOP_K: "10"
+  FINAL_TOP_K: "5"
+  RRF_K: "60.0"
+  DENSE_WEIGHT: "0.5"
+  SPARSE_WEIGHT: "0.5"
+  FUSION_MODE: "rrf"
+
+  # Cache Configuration (NEW)
+  BM25_CACHE_ENABLED: "true"
+  BM25_CACHE_DIR: "/app/chroma_db/bm25_cache"
+
+  # Reranking Configuration (NEW - Optional)
+  ENABLE_RERANK: "false"
+  RERANK_MODEL: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+  # Query Expansion Configuration (NEW - Optional)
+  ENABLE_QUERY_EXPANSION: "false"
+  QUERY_EXPANSION_TYPE: "synonym"
+  QUERY_EXPANSION_MAX: "3"
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -176,6 +199,8 @@ spec:
         volumeMounts:
         - name: uploads-volume
           mountPath: /app/uploads
+        - name: chroma-data
+          mountPath: /app/chroma_db
         resources:
           requests:
             memory: "2Gi"
@@ -187,6 +212,9 @@ spec:
       - name: uploads-volume
         persistentVolumeClaim:
           claimName: uploads-pvc
+      - name: chroma-data
+        persistentVolumeClaim:
+          claimName: chroma-pvc
 ---
 apiVersion: v1
 kind: Service
