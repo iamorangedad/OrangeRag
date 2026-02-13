@@ -4,6 +4,7 @@ from app.core.retrievers.base import BaseRetriever, NodeWithScore
 from app.core.retrievers.dense_retriever import DenseRetriever
 from app.core.retrievers.sparse_retriever import BM25Retriever
 from app.core.retrievers.hybrid_retriever import HybridRetriever
+from app.core.metadata import MetadataMatchResult
 
 __all__ = [
     "BaseRetriever",
@@ -11,4 +12,5 @@ __all__ = [
     "DenseRetriever",
     "BM25Retriever",
     "HybridRetriever",
+    "MetadataMatchResult",
 ]

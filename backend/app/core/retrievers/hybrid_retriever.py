@@ -13,6 +13,7 @@ from app.core.fusion.rrf_fusion import (
     reciprocal_rank_fusion,
     weighted_reciprocal_rank_fusion,
 )
+from app.core.metadata import MetadataMatcher, MetadataMatchResult
 
 
 class HybridRetriever(BaseRetriever):
@@ -80,6 +81,11 @@ class HybridRetriever(BaseRetriever):
         self.fusion_mode = "rrf"  # Options: "rrf", "weighted"
         self._reranker = None
 
+        # Initialize metadata matcher for document/page matching
+        self._metadata_matcher = MetadataMatcher(
+            cache_dir=cache_dir or ".bm25_cache", match_threshold=0.8, enable_fuzzy_match=True
+        )
+
     def set_reranker(self, reranker) -> None:
         """
         Set an optional reranker for post-fusion reranking.
@@ -130,7 +136,7 @@ class HybridRetriever(BaseRetriever):
 
     def add_documents(self, nodes: List[TextNode]) -> None:
         """
-        Add documents to both retrievers.
+        Add documents to both retrievers and build metadata index.
 
         Args:
             nodes: List of text nodes to add
@@ -141,6 +147,9 @@ class HybridRetriever(BaseRetriever):
         # Add to both retrievers
         self.dense_retriever.add_documents(nodes)
         self.sparse_retriever.add_documents(nodes)
+
+        # Build metadata index for citation support
+        self._metadata_matcher.build_index(nodes)
 
     def retrieve(self, query: str, top_k: Optional[int] = None) -> List[NodeWithScore]:
         """
@@ -228,3 +237,20 @@ class HybridRetriever(BaseRetriever):
     def document_count(self) -> int:
         """Get the number of documents."""
         return self.dense_retriever.document_count
+
+    def match_metadata(self, query: str) -> MetadataMatchResult:
+        """
+        Match query against metadata index for document/page references.
+
+        Args:
+            query: User query string
+
+        Returns:
+            MetadataMatchResult with match status and details
+        """
+        return self._metadata_matcher.match(query)
+
+    @property
+    def metadata_matcher(self) -> MetadataMatcher:
+        """Get the metadata matcher instance."""
+        return self._metadata_matcher
