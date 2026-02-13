@@ -1,10 +1,22 @@
-"""Hybrid chat service combining dense and sparse retrieval with RRF fusion."""
+"""Hybrid chat service with three-layer retrieval architecture and citation support.
+
+This service implements the three-layer architecture:
+1. Metadata Matching (BM25 on metadata) - validates document/page references
+2. Citation Retrieval (BM25 on content) - retrieves exact text snippets for citations
+3. Hybrid RAG (Dense + Sparse) - generates answers with semantic understanding
+
+Key Features:
+- Strict mode: When metadata doesn't match, don't force an answer
+- Citation support: Provides exact source references [1], [2], etc.
+- Metadata validation: Verifies if user queries reference valid documents/pages
+"""
 
 import os
 import uuid
 import time
 import logging
 from typing import Optional, Dict, Any, List
+from dataclasses import dataclass, field
 
 from llama_index.core.schema import TextNode
 from llama_index.core.embeddings import BaseEmbedding
@@ -14,25 +26,55 @@ from app.services.chat_service import ChatService
 from app.services.model_service import ModelService
 from app.core.retrievers.hybrid_retriever import HybridRetriever
 from app.core.retrievers.base import NodeWithScore
+from app.core.citation import (
+    CitationRetriever,
+    CitationRetrieverManager,
+    CitationCandidate,
+    create_citation_filter_from_match,
+)
+from app.core.metadata import MetadataMatchResult
+from app.core.prompt import StrategicPromptBuilder, PromptContext
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class ChatResponse:
+    """Enhanced chat response with citation support."""
+
+    response: str
+    conversation_id: str
+    metadata_match: Dict[str, Any] = field(default_factory=dict)
+    citations: List[Dict[str, Any]] = field(default_factory=list)
+    retrieved_count: int = 0
+
+
 class HybridChatService(ChatService):
     """
-    Chat service with Hybrid RAG support.
+    Chat service with three-layer retrieval architecture.
 
-    This service extends the base ChatService to use HybridRetriever,
-    which combines dense (vector) and sparse (BM25) retrieval with
-    Reciprocal Rank Fusion (RRF).
+    Architecture:
+        Query → MetadataMatcher → [MATCHED/NONE]
+                  ↓
+        MATCHED: CitationRetriever (filtered)
+        NONE: CitationRetriever (global) or skip
+                  ↓
+        Hybrid RAG (Dense + Sparse)
+                  ↓
+        Strategic Prompt Builder
+                  ↓
+        LLM Response with Citations
 
-    The hybrid approach provides better recall and accuracy by leveraging
-    both semantic understanding and exact keyword matching.
+    Features:
+    - Metadata validation using BM25 on document metadata
+    - Independent citation retrieval using BM25 on content
+    - Hybrid RAG for answer generation
+    - Strict mode: Don't force answers when metadata doesn't match
     """
 
     def __init__(self, upload_dir: str = None, model_service: ModelService = None):
         """
-        Initialize hybrid chat service.
+        Initialize hybrid chat service with citation support.
 
         Args:
             upload_dir: Directory containing uploaded documents
@@ -47,8 +89,11 @@ class HybridChatService(ChatService):
         self.conversation_history: Dict[str, Any] = {}
         self.conversation_timestamps: Dict[str, float] = {}
 
-        # Hybrid retriever (will be initialized per conversation)
+        # Three-layer retrieval components (per conversation)
         self._hybrid_retrievers: Dict[str, HybridRetriever] = {}
+        self._citation_retrievers = CitationRetrieverManager(
+            cache_dir=settings.bm25_cache_dir or os.path.join(settings.chroma_dir, "bm25_cache")
+        )
 
         # Query expander (initialized based on config)
         self._query_expander = None
@@ -58,7 +103,14 @@ class HybridChatService(ChatService):
         self._reranker = None
         self._init_reranker()
 
-        logger.info("[HybridChat] Initialized HybridChatService")
+        # Prompt builder
+        self._prompt_builder = StrategicPromptBuilder(
+            strict_mode=True,
+            max_citation_length=300,
+            max_hybrid_context_length=2000,
+        )
+
+        logger.info("[HybridChat] Initialized HybridChatService with citation support")
 
     def _init_query_expander(self) -> None:
         """Initialize query expander based on configuration."""
@@ -129,24 +181,47 @@ class HybridChatService(ChatService):
         Returns:
             List of text nodes
         """
-        from llama_index.core import SimpleDirectoryReader
+        from app.core.document_processing import UniversalDocumentLoader
 
         if not os.path.exists(self.upload_dir):
             return []
 
         try:
-            documents = SimpleDirectoryReader(self.upload_dir).load_data()
-            # Convert documents to nodes
-            nodes = []
-            for doc in documents:
-                node = TextNode(id_=str(uuid.uuid4()), text=doc.text, metadata=doc.metadata)
-                nodes.append(node)
+            loader = UniversalDocumentLoader(extract_pdf_metadata=True)
+            documents = []
 
-            logger.info(f"[HybridChat] Loaded {len(nodes)} document nodes")
+            # Load all files in upload directory
+            for filename in os.listdir(self.upload_dir):
+                file_path = os.path.join(self.upload_dir, filename)
+                if os.path.isfile(file_path):
+                    try:
+                        docs = loader.load_data(file_path)
+                        documents.extend(docs)
+                        logger.info(f"[HybridChat] Loaded {len(docs)} pages from {filename}")
+                    except Exception as e:
+                        logger.warning(f"[HybridChat] Failed to load {filename}: {e}")
+
+            # Convert to nodes
+            from llama_index.core.node_parser import SentenceSplitter
+
+            node_parser = SentenceSplitter(chunk_size=512, chunk_overlap=50)
+            nodes = node_parser.get_nodes_from_documents(documents)
+
+            # Enhance metadata
+            for i, node in enumerate(nodes):
+                node.metadata["chunk_index"] = i
+                node.metadata["total_chunks"] = len(nodes)
+
+            logger.info(
+                f"[HybridChat] Loaded {len(nodes)} document nodes from {len(documents)} pages"
+            )
             return nodes
 
         except Exception as e:
             logger.error(f"[HybridChat] Failed to load documents: {e}")
+            import traceback
+
+            logger.error(f"[HybridChat] Traceback: {traceback.format_exc()}")
             return []
 
     def get_or_create_hybrid_retriever(
@@ -220,6 +295,11 @@ class HybridChatService(ChatService):
         if nodes:
             retriever.add_documents(nodes)
             logger.info(f"[HybridChat] Indexed {len(nodes)} nodes in hybrid retriever")
+
+            # Also build citation index
+            citation_retriever = self._citation_retrievers.get_or_create_retriever(conversation_id)
+            citation_retriever.build_index(nodes)
+            logger.info(f"[HybridChat] Built citation index for conversation: {conversation_id}")
         else:
             raise ValueError("No documents could be loaded for indexing")
 
@@ -235,9 +315,14 @@ class HybridChatService(ChatService):
         conversation_id: Optional[str] = None,
         model_name: Optional[str] = None,
         embedding_model: Optional[str] = None,
-    ) -> Dict[str, str]:
+    ) -> ChatResponse:
         """
-        Process a chat message using hybrid retrieval.
+        Process a chat message using three-layer retrieval architecture.
+
+        Three-layer process:
+        1. Metadata matching (BM25 on metadata) - validates document/page references
+        2. Citation retrieval (BM25 on content) - retrieves exact text snippets
+        3. Hybrid RAG (Dense + Sparse) - generates answers
 
         Args:
             message: User message
@@ -246,7 +331,7 @@ class HybridChatService(ChatService):
             embedding_model: Optional embedding model name
 
         Returns:
-            Dict with response and conversation_id
+            ChatResponse with response, citations, and metadata match info
         """
         start_time = time.time()
 
@@ -257,10 +342,14 @@ class HybridChatService(ChatService):
         )
 
         try:
-            # Get hybrid retriever
+            # Step 1: Get retrievers
             retriever = self.get_or_create_hybrid_retriever(conv_id, model_name, embedding_model)
+            citation_retriever = self._citation_retrievers.get_retriever(conv_id)
 
-            # Apply query expansion if enabled
+            if not citation_retriever:
+                raise ValueError("Citation retriever not initialized")
+
+            # Step 2: Apply query expansion if enabled
             search_query = message
             if self._query_expander:
                 expanded_queries = self._query_expander.expand(message)
@@ -268,39 +357,78 @@ class HybridChatService(ChatService):
                     logger.info(
                         f"[HybridChat] Query expanded to {len(expanded_queries)} variations"
                     )
-                    # Use the first (likely best) expanded query
                     search_query = expanded_queries[0]
 
-            # Retrieve context using hybrid search
-            retrieve_start = time.time()
-            results: List[NodeWithScore] = retriever.retrieve(search_query)
-            retrieve_time = time.time() - retrieve_start
-
+            # Step 3: Metadata Matching (Layer 1)
+            logger.info(f"[HybridChat] Step 1: Metadata matching")
+            metadata_match = retriever.match_metadata(search_query)
             logger.info(
-                f"[HybridChat] Hybrid retrieval completed in {retrieve_time:.2f}s, "
-                f"found {len(results)} results"
+                f"[HybridChat] Metadata match status: {metadata_match.status}, "
+                f"confidence: {metadata_match.confidence:.2f}"
             )
 
-            # Build context from retrieved nodes
-            context_parts = []
-            for idx, result in enumerate(results, 1):
-                context_parts.append(f"[{idx}] {result.text}")
+            # Step 4: Citation Retrieval (Layer 2)
+            logger.info(f"[HybridChat] Step 2: Citation retrieval")
+            citation_start = time.time()
 
-            context = "\n\n".join(context_parts)
+            if metadata_match.status in ["exact", "partial"]:
+                # Use filtered citation retrieval
+                filter_obj = create_citation_filter_from_match(
+                    metadata_match.matched_docs, metadata_match.matched_pages
+                )
+                citations = citation_retriever.retrieve(
+                    search_query, metadata_filter=filter_obj, top_k=5
+                )
+            else:
+                # Use global citation retrieval
+                citations = citation_retriever.retrieve(search_query, top_k=5)
 
-            # Build prompt with context
-            prompt = self._build_prompt(message, context)
+            citation_time = time.time() - citation_start
+            logger.info(
+                f"[HybridChat] Citation retrieval completed in {citation_time:.2f}s, "
+                f"found {len(citations)} citations"
+            )
 
-            # Generate response using LLM
+            # Step 5: Hybrid RAG Retrieval (Layer 3)
+            logger.info(f"[HybridChat] Step 3: Hybrid RAG retrieval")
+            retrieve_start = time.time()
+            hybrid_results: List[NodeWithScore] = retriever.retrieve(search_query)
+            retrieve_time = time.time() - retrieve_start
+            logger.info(
+                f"[HybridChat] Hybrid retrieval completed in {retrieve_time:.2f}s, "
+                f"found {len(hybrid_results)} results"
+            )
+
+            # Step 6: Build prompt using strategic builder
+            logger.info(f"[HybridChat] Step 4: Building prompt")
+            prompt_context = PromptContext(
+                query=message,
+                metadata_match=metadata_match,
+                citations=citations,
+                hybrid_results=hybrid_results,
+            )
+            prompt = self._prompt_builder.build_prompt(prompt_context)
+
+            # Step 7: Generate response using LLM
+            logger.info(f"[HybridChat] Step 5: Generating response")
             llm_start = time.time()
-            response = self._generate_response(prompt, model_name)
+            response_text = self._generate_response(prompt, model_name)
             llm_time = time.time() - llm_start
 
             total_time = time.time() - start_time
             logger.info(f"[HybridChat] LLM generation completed in {llm_time:.2f}s")
             logger.info(f"[HybridChat] Total request time: {total_time:.2f}s - conv_id: {conv_id}")
 
-            return {"response": response, "conversation_id": conv_id}
+            # Build response
+            response = ChatResponse(
+                response=response_text,
+                conversation_id=conv_id,
+                metadata_match=metadata_match.to_dict(),
+                citations=[c.to_dict() for c in citations],
+                retrieved_count=len(hybrid_results),
+            )
+
+            return response
 
         except Exception as e:
             logger.error(f"[HybridChat] Error: {e}")
@@ -308,28 +436,6 @@ class HybridChatService(ChatService):
 
             logger.error(f"[HybridChat] Traceback: {traceback.format_exc()}")
             raise
-
-    def _build_prompt(self, query: str, context: str) -> str:
-        """
-        Build a prompt with retrieved context.
-
-        Args:
-            query: User query
-            context: Retrieved context
-
-        Returns:
-            Formatted prompt
-        """
-        return f"""Based on the following context, please answer the question.
-
-Context:
-{context}
-
-Question: {query}
-
-Please provide a comprehensive answer based only on the context provided above. If the context doesn't contain enough information to answer the question, please say so.
-
-Answer:"""
 
     def _generate_response(self, prompt: str, model_name: Optional[str] = None) -> str:
         """
@@ -371,10 +477,14 @@ Answer:"""
                 f"[HybridChat] Cleared hybrid retriever for conversation: {conversation_id}"
             )
 
+        # Also clear citation retriever
+        self._citation_retrievers.clear_conversation(conversation_id)
+
         return True
 
     def clear_all_conversations(self) -> None:
         """Clear all conversation history."""
         super().clear_all_conversations()
         self._hybrid_retrievers.clear()
-        logger.info("[HybridChat] All hybrid retrievers cleared")
+        self._citation_retrievers.clear_all()
+        logger.info("[HybridChat] All retrievers cleared")
