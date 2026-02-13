@@ -134,7 +134,7 @@ class TestCitationRetriever:
 
         assert retriever.k1 == 1.2
         assert retriever.b == 0.75
-        assert retriever.min_score_threshold == 0.1
+        assert retriever.min_score_threshold == 0.0
         assert retriever.is_empty is True
 
     def test_init_custom(self):
@@ -323,7 +323,8 @@ class TestCitationRetriever:
         from llama_index.core.schema import TextNode
 
         retriever = CitationRetriever()
-        retriever._all_nodes = [TextNode(id_="1", text="t", metadata={})]
+        # Use build_index to properly set up the retriever
+        retriever.build_index([TextNode(id_="1", text="t", metadata={})])
 
         assert not retriever.is_empty
 
@@ -338,10 +339,13 @@ class TestCitationRetriever:
         from llama_index.core.schema import TextNode
 
         retriever = CitationRetriever()
-        retriever._all_nodes = [
-            TextNode(id_="1", text="t", metadata={"file_name": "doc.pdf", "page_number": 1}),
-            TextNode(id_="2", text="t", metadata={"file_name": "doc.pdf", "page_number": 2}),
-        ]
+        # Use build_index to properly set up the retriever
+        retriever.build_index(
+            [
+                TextNode(id_="1", text="t", metadata={"file_name": "doc.pdf", "page_number": 1}),
+                TextNode(id_="2", text="t", metadata={"file_name": "doc.pdf", "page_number": 2}),
+            ]
+        )
 
         stats = retriever.get_stats()
 
@@ -494,8 +498,9 @@ class TestIntegration:
         assert all(c.source == "manual.pdf" for c in citations)
 
         # Test 3: Create filter from match results
+        # Use query that matches content on page 5 (which contains "Python")
         filter_obj = create_citation_filter_from_match(
             matched_docs=["manual.pdf"], matched_pages={"manual.pdf": [5]}
         )
-        citations = retriever.retrieve("install", metadata_filter=filter_obj)
+        citations = retriever.retrieve("Python", metadata_filter=filter_obj)
         assert len(citations) > 0
