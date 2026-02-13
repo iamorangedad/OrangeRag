@@ -211,8 +211,8 @@ class TestHybridRetriever:
 
         result = retriever.match_metadata("document 1")
 
-        assert hasattr(result, "has_match")
-        assert hasattr(result, "matches")
+        assert hasattr(result, "status")
+        assert hasattr(result, "matched_docs")
 
     def test_metadata_matcher_property(self, mock_embed_model):
         """Test metadata matcher property."""

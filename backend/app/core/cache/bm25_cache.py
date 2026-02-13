@@ -9,7 +9,8 @@ from datetime import datetime
 
 from llama_index.core.schema import TextNode
 
-from app.core.retrievers.sparse_retriever import BM25Retriever
+# Avoid circular import - import BM25Retriever lazily inside methods
+# from app.core.retrievers.sparse_retriever import BM25Retriever
 
 
 class BM25IndexCache:
@@ -62,7 +63,7 @@ class BM25IndexCache:
         return self.cache_dir / f"bm25_{content_hash}_metadata.json"
 
     def save(
-        self, retriever: BM25Retriever, nodes: List[TextNode], k1: float = 1.5, b: float = 0.75
+        self, retriever: "BM25Retriever", nodes: List[TextNode], k1: float = 1.5, b: float = 0.75
     ) -> None:
         """
         Save BM25 index to cache.
@@ -110,7 +111,7 @@ class BM25IndexCache:
 
     def load(
         self, nodes: List[TextNode], k1: float = 1.5, b: float = 0.75
-    ) -> Optional[Tuple[BM25Retriever, List[TextNode]]]:
+    ) -> Optional[Tuple["BM25Retriever", List[TextNode]]]:
         """
         Load BM25 index from cache if valid.
 
@@ -162,7 +163,9 @@ class BM25IndexCache:
             if cache_data.get("k1") != k1 or cache_data.get("b") != b:
                 return None
 
-            # Reconstruct retriever
+            # Reconstruct retriever - lazy import to avoid circular dependency
+            from app.core.retrievers.sparse_retriever import BM25Retriever
+
             retriever = BM25Retriever(k1=k1, b=b)
             retriever._tokenized_corpus = cache_data["tokenized_corpus"]
 

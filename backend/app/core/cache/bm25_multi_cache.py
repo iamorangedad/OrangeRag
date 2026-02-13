@@ -25,7 +25,8 @@ from enum import Enum
 
 from llama_index.core.schema import TextNode
 
-from app.core.retrievers.sparse_retriever import BM25Retriever
+# Avoid circular import - lazy import BM25Retriever inside methods
+# from app.core.retrievers.sparse_retriever import BM25Retriever
 from app.core.cache.bm25_cache import BM25IndexCache
 
 
@@ -102,7 +103,7 @@ class BM25MultiIndexCache:
         return index_path, metadata_path
 
     def save_content_index(
-        self, retriever: BM25Retriever, nodes: List[TextNode], k1: float = 1.5, b: float = 0.75
+        self, retriever: "BM25Retriever", nodes: List[TextNode], k1: float = 1.5, b: float = 0.75
     ) -> None:
         """
         Save standard content index (for Hybrid RAG).
@@ -157,7 +158,7 @@ class BM25MultiIndexCache:
 
     def save_citation_index(
         self,
-        retriever: BM25Retriever,
+        retriever: "BM25Retriever",
         nodes: List[TextNode],
         k1: float = 1.2,  # More conservative for citations
         b: float = 0.75,
@@ -176,7 +177,7 @@ class BM25MultiIndexCache:
     def _save_index(
         self,
         cache_type: CacheType,
-        retriever: BM25Retriever,
+        retriever: "BM25Retriever",
         nodes: List[TextNode],
         k1: float,
         b: float,
@@ -220,7 +221,7 @@ class BM25MultiIndexCache:
 
     def load_content_index(
         self, nodes: List[TextNode], k1: float = 1.5, b: float = 0.75
-    ) -> Optional[Tuple[BM25Retriever, List[TextNode]]]:
+    ) -> Optional[Tuple["BM25Retriever", List[TextNode]]]:
         """
         Load standard content index.
 
@@ -275,7 +276,7 @@ class BM25MultiIndexCache:
 
     def load_citation_index(
         self, nodes: List[TextNode], k1: float = 1.2, b: float = 0.75
-    ) -> Optional[Tuple[BM25Retriever, List[TextNode]]]:
+    ) -> Optional[Tuple["BM25Retriever", List[TextNode]]]:
         """
         Load citation-optimized index.
 
@@ -291,7 +292,7 @@ class BM25MultiIndexCache:
 
     def _load_index(
         self, cache_type: CacheType, nodes: List[TextNode], k1: float, b: float
-    ) -> Optional[Tuple[BM25Retriever, List[TextNode]]]:
+    ) -> Optional[Tuple["BM25Retriever", List[TextNode]]]:
         """Internal method to load a retriever index."""
         if not nodes:
             return None
@@ -321,7 +322,9 @@ class BM25MultiIndexCache:
             if cache_data.get("cache_version") != self.CACHE_VERSION:
                 return None
 
-            # Reconstruct retriever
+            # Reconstruct retriever - lazy import to avoid circular dependency
+            from app.core.retrievers.sparse_retriever import BM25Retriever
+
             retriever = BM25Retriever(k1=k1, b=b)
             retriever._tokenized_corpus = cache_data["tokenized_corpus"]
 
