@@ -34,6 +34,17 @@ backend/
 │   │   ├── health.py          # Health checks
 │   │   └── frontend.py        # Static file serving
 │   ├── core/                  # Core abstractions
+│   │   ├── retrievers/        # Hybrid RAG retrievers
+│   │   │   ├── base.py        # Retriever abstract base
+│   │   │   ├── dense_retriever.py   # Dense (vector) retrieval
+│   │   │   ├── sparse_retriever.py  # Sparse (BM25) retrieval
+│   │   │   └── hybrid_retriever.py  # Hybrid retrieval (RRF fusion)
+│   │   ├── fusion/            # Fusion algorithms
+│   │   │   ├── rrf_fusion.py        # RRF fusion implementation
+│   │   │   └── weighted_fusion.py   # Weighted fusion
+│   │   ├── reranker/          # Reranking (Phase 3)
+│   │   │   ├── base.py              # Reranker abstract base
+│   │   │   └── cross_encoder.py     # Cross-Encoder reranker
 │   │   ├── vector_store/      # Vector store abstraction
 │   │   │   ├── base.py        # Abstract base + factory
 │   │   │   ├── simple.py      # In-memory implementation
@@ -44,9 +55,10 @@ backend/
 │   ├── models/                # Data models
 │   │   └── schemas.py         # Pydantic schemas
 │   ├── services/              # Business logic layer
-│   │   ├── chat_service.py    # Chat & indexing logic
-│   │   ├── document_service.py # File operations
-│   │   └── model_service.py   # LLM management
+│   │   ├── hybrid_chat_service.py  # Hybrid RAG chat service
+│   │   ├── chat_service.py         # Legacy chat & indexing logic
+│   │   ├── document_service.py     # File operations
+│   │   └── model_service.py        # LLM management
 │   └── utils/                 # Utilities
 │       ├── security.py        # Security helpers
 │       └── helpers.py         # General utilities
@@ -59,8 +71,8 @@ backend/
 │                      Web Browser                            │
 │                     (React HTML UI)                         │
 └───────────────────────────┬─────────────────────────────────┘
-                            │ HTTP API
-                            ▼
+                             │ HTTP API
+                             ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                Doc-Chat Backend (FastAPI)                   │
 │  ┌─────────────────────────────────────────────────────┐   │
@@ -71,7 +83,7 @@ backend/
 │  └─────────────────────────────────────────────────────┘   │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │              Services Layer                         │   │
-│  │  - ChatService: Conversation & indexing logic       │   │
+│  │  - HybridChatService: Hybrid RAG chat logic         │   │
 │  │  - DocumentService: File operations                 │   │
 │  │  - ModelService: LLM provider management            │   │
 │  └─────────────────────────────────────────────────────┘   │
@@ -83,6 +95,13 @@ backend/
 │  │  │  - Simple     │    │  - Ollama               │  │   │
 │  │  │  - Chroma     │    │  - (Extensible)         │  │   │
 │  │  │  - (Add more) │    │                         │  │   │
+│  │  └───────────────┘    └─────────────────────────┘  │   │
+│  │  ┌───────────────┐    ┌─────────────────────────┐  │   │
+│  │  │  Retrievers   │    │   Fusion & Reranker     │  │   │
+│  │  │  (Hybrid RAG) │    │                         │  │   │
+│  │  │  - Dense      │    │  - RRF Fusion           │  │   │
+│  │  │  - Sparse     │    │  - Weighted Fusion      │  │   │
+│  │  │  - Hybrid     │    │  - Cross-Encoder        │  │   │
 │  │  └───────────────┘    └─────────────────────────┘  │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                            │                                │
@@ -122,6 +141,14 @@ Retriever    Retriever
 - **Semantic + Keyword**: Handles both conceptual queries and exact terms
 - **Fast Caching**: BM25 index cached for 10-50x faster restarts
 - **Configurable**: Adjust weights, fusion mode, and optional features
+
+### Implementation Roadmap
+
+| Phase | Features | Status |
+|-------|----------|--------|
+| **Phase 1** | Base Hybrid RAG (Dense + Sparse + RRF) | ✅ Completed |
+| **Phase 2** | Performance Optimization (Caching, Async, Weighted Fusion) | ✅ Completed |
+| **Phase 3** | Advanced Features (Cross-Encoder Reranking, Query Expansion, A/B Testing) | ✅ Completed |
 
 [→ Hybrid RAG Configuration Guide](docs/hybrid_rag_tuning_guide.md)
 
@@ -261,6 +288,21 @@ GET /health
 | `ALLOWED_ORIGINS` | CORS origins (comma-separated) | `` (empty = allow all) |
 | `DEBUG` | Enable debug mode | `false` |
 
+### Hybrid RAG Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ENABLE_HYBRID_SEARCH` | Enable Hybrid RAG (dense + sparse) | `true` |
+| `DENSE_WEIGHT` | Weight for dense retrieval | `0.5` |
+| `SPARSE_WEIGHT` | Weight for sparse retrieval | `0.5` |
+| `RRF_K` | RRF fusion constant (paper recommends 60) | `60.0` |
+| `DENSE_TOP_K` | Top-K results from dense retrieval | `10` |
+| `SPARSE_TOP_K` | Top-K results from sparse retrieval | `10` |
+| `FINAL_TOP_K` | Final number of results after fusion | `5` |
+| `ENABLE_RERANK` | Enable Cross-Encoder reranking (Phase 3) | `false` |
+| `RERANK_MODEL` | Cross-Encoder model for reranking | `cross-encoder/ms-marco-MiniLM-L-6-v2` |
+| `RERANK_DEVICE` | Device for reranking (`cuda`, `cpu`, `mps`, or empty) | `` (auto-detect) |
+
 ### Vector Store Selection
 
 Choose your vector storage backend:
@@ -273,6 +315,39 @@ VECTOR_STORE_TYPE=simple
 VECTOR_STORE_TYPE=chroma
 CHROMA_HOST=chroma
 CHROMA_PORT=8000
+```
+
+## Technical Specifications
+
+### Hybrid RAG Architecture
+
+The system implements a dual-channel retrieval system with RRF fusion:
+
+1. **Dense Channel**: Vector-based semantic retrieval using embeddings
+2. **Sparse Channel**: BM25-based keyword/term matching
+3. **RRF Fusion**: Reciprocal Rank Fusion combines results from both channels
+
+### RRF Algorithm
+
+The Reciprocal Rank Fusion formula:
+
+```
+RRF_Score(d) = Σ 1/(k + rank_i(d))
+
+Where:
+- d: document
+- k: constant (default 60, paper recommendation)
+- rank_i(d): document rank in channel i's results
+```
+
+### Dependencies
+
+```toml
+[project.dependencies]
+rank-bm25 = ">=0.2.2"           # BM25 sparse retrieval
+
+# Phase 3 optional
+sentence-transformers = ">=2.2.0"  # Cross-Encoder reranking
 ```
 
 ## Extending the System
@@ -373,6 +448,9 @@ backend/
 ├── app/
 │   ├── api/             # HTTP routes and handlers
 │   ├── core/            # Business logic abstractions
+│   │   ├── retrievers/  # Hybrid RAG retrievers
+│   │   ├── fusion/      # Fusion algorithms (RRF)
+│   │   └── reranker/    # Cross-Encoder reranker
 │   ├── models/          # Data schemas
 │   ├── services/        # Business logic implementation
 │   └── utils/           # Helper functions
