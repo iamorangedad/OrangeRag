@@ -85,17 +85,8 @@ spec:
       labels:
         app: chroma
     spec:
-      # 使用软亲和性替代硬节点选择器，优先调度到指定节点但不强制
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            preference:
-              matchExpressions:
-              - key: kubernetes.io/hostname
-                operator: In
-                values:
-                - "raspberrypi"
+      nodeSelector:
+        kubernetes.io/hostname: "raspberrypi"
       containers:
       - name: chroma
         image: chromadb/chroma:latest
@@ -176,17 +167,8 @@ spec:
       labels:
         app: doc-chat
     spec:
-      # 使用软亲和性替代硬节点选择器，优先调度到指定节点但不强制
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            preference:
-              matchExpressions:
-              - key: kubernetes.io/hostname
-                operator: In
-                values:
-                - "ubuntu"
+      nodeSelector:
+        kubernetes.io/hostname: "ubuntu"
       containers:
       - name: doc-chat
         image: doc-chat:latest
