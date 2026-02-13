@@ -182,8 +182,6 @@ spec:
         volumeMounts:
         - name: uploads-volume
           mountPath: /app/uploads
-        - name: chroma-data
-          mountPath: /app/chroma_db
         resources:
           requests:
             memory: "2Gi"
@@ -195,9 +193,6 @@ spec:
       - name: uploads-volume
         persistentVolumeClaim:
           claimName: uploads-pvc
-      - name: chroma-data
-        persistentVolumeClaim:
-          claimName: chroma-pvc
 ---
 apiVersion: v1
 kind: Service
