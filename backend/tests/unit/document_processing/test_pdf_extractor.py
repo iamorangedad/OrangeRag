@@ -112,27 +112,29 @@ class TestUniversalDocumentLoader:
         loader = UniversalDocumentLoader()
         assert loader.extract_pdf_metadata is True
 
-    @patch("app.core.document_processing.pdf_extractor.PDFMetadataExtractor")
     @patch("app.core.document_processing.pdf_extractor.Path")
-    def test_load_pdf_file(self, mock_path, mock_extractor_class):
+    def test_load_pdf_file(self, mock_path):
         """Test loading PDF file uses PDFMetadataExtractor."""
-        from app.core.document_processing.pdf_extractor import UniversalDocumentLoader
+        from app.core.document_processing.pdf_extractor import (
+            UniversalDocumentLoader,
+            PDFMetadataExtractor,
+        )
 
-        # Setup
+        # Setup path mock
         mock_path_instance = MagicMock()
         mock_path_instance.suffix.lower.return_value = ".pdf"
+        mock_path_instance.name = "document.pdf"
         mock_path.return_value = mock_path_instance
 
-        mock_extractor = MagicMock()
-        mock_extractor.load_data.return_value = [Mock()]
-        mock_extractor_class.return_value = mock_extractor
+        # Mock the extractor instance method
+        with patch.object(
+            PDFMetadataExtractor, "load_data", return_value=[MagicMock()]
+        ) as mock_load:
+            loader = UniversalDocumentLoader()
+            result = loader.load_data("document.pdf")
 
-        loader = UniversalDocumentLoader()
-        result = loader.load_data("document.pdf")
-
-        mock_extractor_class.assert_called_once()
-        mock_extractor.load_data.assert_called_once_with("document.pdf")
-        assert len(result) == 1
+            mock_load.assert_called_once()
+            assert len(result) == 1
 
     @patch("app.core.document_processing.pdf_extractor.SimpleDirectoryReader")
     @patch("app.core.document_processing.pdf_extractor.Path")
