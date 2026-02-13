@@ -10,6 +10,16 @@ from typing import List, Dict, Any, Optional
 
 from llama_index.core.schema import Document
 
+try:
+    import pdfplumber
+except ImportError:
+    pdfplumber = None
+
+try:
+    from llama_index.core import SimpleDirectoryReader
+except ImportError:
+    SimpleDirectoryReader = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,9 +59,7 @@ class PDFMetadataExtractor:
             ImportError: If pdfplumber is not installed
             FileNotFoundError: If file doesn't exist
         """
-        try:
-            import pdfplumber
-        except ImportError:
+        if pdfplumber is None:
             logger.error("pdfplumber not installed. Install with: pip install pdfplumber")
             raise ImportError("pdfplumber is required for PDF metadata extraction")
 
@@ -164,7 +172,8 @@ class UniversalDocumentLoader:
         Returns:
             List of Document objects
         """
-        from llama_index.core import SimpleDirectoryReader
+        if SimpleDirectoryReader is None:
+            raise ImportError("SimpleDirectoryReader is not available")
 
         reader = SimpleDirectoryReader(input_files=[str(file_path)], filename_as_id=True)
         documents = reader.load_data()
