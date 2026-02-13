@@ -172,7 +172,7 @@ class CitationRetriever:
         b: float = DEFAULT_B,
         cache_enabled: bool = True,
         cache_dir: str = ".bm25_cache",
-        min_score_threshold: float = 0.1,
+        min_score_threshold: float = 0.0,
     ):
         """
         Initialize citation retriever.
