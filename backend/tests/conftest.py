@@ -84,7 +84,7 @@ def mock_ollama_response():
 def sample_documents():
     """Sample documents for retrieval testing."""
     return [
-        {"id": f"doc_{i}", "content": f"Document {i} content about Python programming"} * 10}
+        {"id": f"doc_{i}", "content": f"Document {i} content about Python programming"}
         for i in range(5)
     ]
 
