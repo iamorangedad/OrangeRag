@@ -80,8 +80,8 @@ class TestBM25MultiIndexCache:
         index_path, meta_path = cache._get_cache_paths(CacheType.CONTENT, "abc123")
 
         assert "content" in str(index_path)
-        assert "v2_content_index_abc123.pkl" in str(index_path)
-        assert "v2_content_abc123_metadata.json" in str(meta_path)
+        assert "v2.0_content_index_abc123.pkl" in str(index_path)
+        assert "v2.0_content_abc123_metadata.json" in str(meta_path)
 
     @patch("app.core.cache.bm25_multi_cache.pickle")
     def test_save_and_load_content_index(self, mock_pickle, tmp_path):
@@ -188,14 +188,15 @@ class TestBM25MultiIndexCache:
 
         # Create dummy files with content
         content_dir = tmp_path / ".bm25_cache" / "content"
-        test_file = content_dir / "v2_content_index_test.pkl"
-        test_file.write_bytes(b"test content" * 100)  # 1100 bytes
+        test_file = content_dir / "v2.0_content_index_test.pkl"
+        test_content = b"test content"
+        test_file.write_bytes(test_content * 100)  # 1200 bytes
 
         stats = cache.get_cache_stats()
 
         assert stats["cache_version"] == "2.0"
         assert stats["types"]["content"]["index_count"] == 1
-        assert stats["types"]["content"]["size_bytes"] == 1100
+        assert stats["types"]["content"]["size_bytes"] == 1200
         assert stats["total"]["index_count"] == 1
 
     def test_migrate_from_v1(self, tmp_path):
