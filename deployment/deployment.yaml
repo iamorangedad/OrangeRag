@@ -11,7 +11,7 @@ metadata:
 data:
   # Ollama Configuration
   OLLAMA_BASE_URL: "http://10.0.0.55:11434"
-  MODEL_NAME: "llama3.2"
+  MODEL_NAME: "qwen3:4b"
   EMBEDDING_MODEL: "nomic-embed-text"
   
   # Vector Store Configuration

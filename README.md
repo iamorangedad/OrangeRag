@@ -147,7 +147,7 @@ pip install -r requirements.txt
 ```bash
 # Create .env file or export variables
 export OLLAMA_BASE_URL=http://10.0.0.55:11434
-export MODEL_NAME=llama3.2
+export MODEL_NAME=qwen3:4b
 export EMBEDDING_MODEL=nomic-embed-text
 export VECTOR_STORE_TYPE=simple  # or 'chroma' for persistent storage
 ```
@@ -216,7 +216,7 @@ Content-Type: application/json
 {
   "message": "Your question here",
   "conversation_id": "uuid-string (optional)",
-  "model": "llama3.2 (optional)",
+  "model": "qwen3:4b (optional)",
   "embedding_model": "nomic-embed-text (optional)"
 }
 ```
@@ -248,7 +248,7 @@ GET /health
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `OLLAMA_BASE_URL` | Ollama service URL | `http://10.0.0.55:11434` |
-| `MODEL_NAME` | Default LLM model | `llama3.2` |
+| `MODEL_NAME` | Default LLM model | `qwen3:4b` |
 | `EMBEDDING_MODEL` | Default embedding model | `nomic-embed-text` |
 | `VECTOR_STORE_TYPE` | Vector store type (`simple`, `chroma`) | `simple` |
 | `USE_CHROMA` | Legacy: Enable Chroma (overrides VECTOR_STORE_TYPE if true) | `false` |
@@ -399,7 +399,7 @@ curl http://10.0.0.55:11434/api/tags
 ### Missing Models
 ```bash
 # Pull required models
-ollama pull llama3.2
+ollama pull qwen3:4b
 ollama pull nomic-embed-text
 ```
 

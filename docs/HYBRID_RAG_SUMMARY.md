@@ -278,7 +278,7 @@ service = HybridChatService()
 response = service.chat(
     message="Your question here",
     conversation_id="optional-id",
-    model_name="llama3.2"
+    model_name="qwen3:4b"
 )
 ```
 

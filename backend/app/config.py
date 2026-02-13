@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     # Ollama Configuration
     ollama_base_url: str = Field(default="http://10.0.0.55:11434", alias="OLLAMA_BASE_URL")
-    default_model_name: str = Field(default="llama3.2", alias="MODEL_NAME")
+    default_model_name: str = Field(default="qwen3:4b", alias="MODEL_NAME")
     default_embedding_model: str = Field(default="nomic-embed-text", alias="EMBEDDING_MODEL")
 
     # Vector Store Configuration

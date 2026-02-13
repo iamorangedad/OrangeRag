@@ -105,7 +105,7 @@ Edit `deployment/deployment.yaml` to customize:
 ```yaml
 data:
   OLLAMA_BASE_URL: "http://your-ollama-host:11434"
-  MODEL_NAME: "llama3.2"  # or your preferred model
+  MODEL_NAME: "qwen3:4b"  # or your preferred model
   EMBEDDING_MODEL: "nomic-embed-text"
 ```
 
@@ -176,7 +176,7 @@ curl http://localhost:8080/health
 | Key | Description | Default |
 |-----|-------------|---------|
 | `OLLAMA_BASE_URL` | Ollama service URL | `http://10.0.0.55:11434` |
-| `MODEL_NAME` | Default LLM model | `llama3.2` |
+| `MODEL_NAME` | Default LLM model | `qwen3:4b` |
 | `EMBEDDING_MODEL` | Default embedding model | `nomic-embed-text` |
 | `VECTOR_STORE_TYPE` | Vector store type (`simple` or `chroma`) | `chroma` |
 | `USE_CHROMA` | Legacy flag (overrides VECTOR_STORE_TYPE if `true`) | `true` |

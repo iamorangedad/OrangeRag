@@ -15,7 +15,7 @@
 - **嵌入模型**: `nomic-embed-text` (768维)
 - **向量存储**: Simple内存存储 / ChromaDB持久化
 - **检索算法**: 余弦相似度
-- **LLM**: Ollama (`llama3.2`)
+- **LLM**: Ollama (`qwen3:4b`)
 
 ### 1.2 当前局限
 
