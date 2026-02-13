@@ -367,17 +367,17 @@ class MetadataMatcher:
             if file.lower() == file_hint_lower:
                 return file, 1.0
 
-        # Name without extension match
-        hint_stem = Path(file_hint).stem.lower()
-        for file in available_files:
-            file_stem = Path(file).stem.lower()
-            if file_stem == hint_stem:
-                return file, 0.95
-            if hint_stem in file_stem or file_stem in hint_stem:
-                return file, 0.85
-
         # Fuzzy match (if enabled)
         if self._enable_fuzzy_match:
+            # Name without extension match
+            hint_stem = Path(file_hint).stem.lower()
+            for file in available_files:
+                file_stem = Path(file).stem.lower()
+                if file_stem == hint_stem:
+                    return file, 0.95
+                if hint_stem in file_stem or file_stem in hint_stem:
+                    return file, 0.85
+
             best_match = None
             best_score = 0.0
 
