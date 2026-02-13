@@ -803,7 +803,7 @@
                             </p>
                         </div>
                     </div>
-                    <div class="current-model" id="currentModelDisplay">llama3.2</div>
+                    <div class="current-model" id="currentModelDisplay">qwen3:4b</div>
                 </div>
                 
                 <div class="chat-messages" id="chatMessages">
@@ -838,7 +838,7 @@
         let conversationId = null;
         let isLoading = false;
         let availableModels = [];
-        let selectedModel = 'llama3.2';
+        let selectedModel = 'qwen3:4b';
         let selectedEmbeddingModel = 'nomic-embed-text';
         
         const uploadZone = document.getElementById('uploadZone');
@@ -893,7 +893,7 @@
         
         function loadDefaultModels() {
             const defaultModels = [
-                { name: 'llama3.2', size: '~2GB', parameter_size: '3B', quantization: 'Default', requires_gpu: false },
+                { name: 'qwen3:4b', size: '~2.5GB', parameter_size: '4B', quantization: 'Default', requires_gpu: false },
                 { name: 'llama3.1:8b', size: '~4.7GB', parameter_size: '8B', quantization: 'Default', requires_gpu: false },
                 { name: 'llama3.1:70b', size: '~40GB', parameter_size: '70B', quantization: 'Default', requires_gpu: true },
                 { name: 'mistral', size: '~4.1GB', parameter_size: '7B', quantization: 'Default', requires_gpu: false },
@@ -922,7 +922,7 @@
             const llmModels = availableModels.filter(m => !m.name.includes('embed'));
             
             if (llmModels.length === 0) {
-                modelSelect.innerHTML = '<option value="llama3.2">llama3.2 (default)</option>';
+                modelSelect.innerHTML = '<option value="qwen3:4b">qwen3:4b (default)</option>';
                 return;
             }
             

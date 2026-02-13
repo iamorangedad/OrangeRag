@@ -1,4 +1,5 @@
 """Ollama LLM provider implementation."""
+
 import logging
 from typing import Optional
 import httpx
@@ -15,63 +16,55 @@ logger = logging.getLogger(__name__)
 
 class OllamaProvider(LLMProvider):
     """Ollama LLM provider."""
-    
+
     def __init__(
         self,
         base_url: str = "http://localhost:11434",
-        default_model: str = "llama3.2",
-        default_embedding_model: str = "nomic-embed-text"
+        default_model: str = "qwen3:4b",
+        default_embedding_model: str = "nomic-embed-text",
     ):
         """
         Initialize Ollama provider.
-        
+
         Args:
             base_url: Ollama API base URL
             default_model: Default LLM model name
             default_embedding_model: Default embedding model name
         """
-        self.base_url = base_url.rstrip('/')
+        self.base_url = base_url.rstrip("/")
         self.default_model = default_model
         self.default_embedding_model = default_embedding_model
-    
+
     def get_llm(self, model_name: Optional[str] = None, request_timeout: float = 120.0) -> LLM:
         """Get Ollama LLM instance with extended timeout.
-        
+
         Args:
             model_name: Model name to use
             request_timeout: HTTP timeout in seconds (default 120s for long queries)
         """
         model = model_name or self.default_model
-        return Ollama(
-            model=model, 
-            base_url=self.base_url,
-            request_timeout=request_timeout
-        )
-    
-    def get_embedding_model(self, model_name: Optional[str] = None, batch_size: int = 10) -> BaseEmbedding:
+        return Ollama(model=model, base_url=self.base_url, request_timeout=request_timeout)
+
+    def get_embedding_model(
+        self, model_name: Optional[str] = None, batch_size: int = 10
+    ) -> BaseEmbedding:
         """Get Ollama embedding model instance with batching support."""
         model = model_name or self.default_embedding_model
-        
+
         # Check if model exists
         if not self.check_model_exists(model):
-            error_msg = (
-                f'Model "{model}" not found in Ollama. '
-                f'Please run: ollama pull {model}'
-            )
+            error_msg = f'Model "{model}" not found in Ollama. Please run: ollama pull {model}'
             logger.error(f"[Embedding] {error_msg}")
             raise ValueError(error_msg)
-        
+
         # Use batched embedding to handle large documents
         from app.core.llm.batched_embedding import BatchedOllamaEmbedding
+
         # Use smaller batch size (5) and longer delays to prevent Ollama overload
         return BatchedOllamaEmbedding(
-            model_name=model,
-            base_url=self.base_url,
-            batch_size=5,
-            max_retries=5,
-            retry_delay=2.0
+            model_name=model, base_url=self.base_url, batch_size=5, max_retries=5, retry_delay=2.0
         )
-    
+
     def check_model_exists(self, model_name: str) -> bool:
         """Check if a model exists in Ollama."""
         try:
@@ -84,7 +77,7 @@ class OllamaProvider(LLMProvider):
         except Exception as e:
             logger.warning(f"[ModelCheck] Failed to check model {model_name}: {e}")
         return False
-    
+
     def list_models(self) -> list[dict]:
         """Fetch available models from Ollama."""
         try:
@@ -107,10 +100,10 @@ class OllamaProvider(LLMProvider):
                     return models
         except Exception as e:
             logger.error(f"Failed to fetch models from Ollama: {e}")
-        
+
         # Return default models if Ollama is not available
         return self._get_default_models()
-    
+
     def _get_default_models(self) -> list[dict]:
         """Return default model list if Ollama is not available."""
         return [
