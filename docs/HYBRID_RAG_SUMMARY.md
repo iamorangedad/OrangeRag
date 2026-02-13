@@ -107,6 +107,7 @@ BM25_CACHE_DIR=/path/to/cache
 # Phase 3 - Advanced Features
 ENABLE_RERANK=false
 RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
+RERANK_DEVICE=cuda  # Options: cuda, cpu, mps, or empty for auto
 ENABLE_QUERY_EXPANSION=false
 QUERY_EXPANSION_TYPE=synonym  # synonym, keyword, hyde, multi
 QUERY_EXPANSION_MAX=3

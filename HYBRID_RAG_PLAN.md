@@ -207,6 +207,7 @@ final_top_k: int = Field(default=5, alias="FINAL_TOP_K")
 # 重排序配置 (Phase 3)
 enable_rerank: bool = Field(default=False, alias="ENABLE_RERANK")
 rerank_model: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    rerank_device: str = Field(default="cuda")  # cuda, cpu, mps, or empty for auto
 ```
 
 ### 5.3 RRF算法规范

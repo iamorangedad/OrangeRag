@@ -55,6 +55,7 @@ data:
   # Reranking Configuration (NEW - Optional)
   ENABLE_RERANK: "false"
   RERANK_MODEL: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  RERANK_DEVICE: "cuda"
 
   # Query Expansion Configuration (NEW - Optional)
   ENABLE_QUERY_EXPANSION: "false"

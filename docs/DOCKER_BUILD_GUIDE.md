@@ -242,6 +242,7 @@ docker exec doc-chat rm -rf /app/chroma_db/bm25_cache/*
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `ENABLE_RERANK` | Enable Cross-Encoder reranking | `false` |
+| `RERANK_DEVICE` | Reranker device (`cuda`/`cpu`/`mps`) | `cuda` |
 | `ENABLE_QUERY_EXPANSION` | Enable query expansion | `false` |
 
 ## Health Checks

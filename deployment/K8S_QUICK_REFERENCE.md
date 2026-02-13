@@ -124,6 +124,7 @@ data:
   FINAL_TOP_K: "20"
   ENABLE_RERANK: "true"
   RERANK_MODEL: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  RERANK_DEVICE: "cuda"
   ENABLE_QUERY_EXPANSION: "true"
   QUERY_EXPANSION_TYPE: "multi"
   QUERY_EXPANSION_MAX: "5"
@@ -157,6 +158,7 @@ data:
   # Optional Features
   ENABLE_RERANK: "false"
   RERANK_MODEL: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  RERANK_DEVICE: "cuda"
   ENABLE_QUERY_EXPANSION: "false"
   QUERY_EXPANSION_TYPE: "synonym"
   QUERY_EXPANSION_MAX: "3"

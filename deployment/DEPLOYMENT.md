@@ -205,6 +205,7 @@ curl http://localhost:8080/health
 | `BM25_CACHE_DIR` | BM25 cache directory | `/app/chroma_db/bm25_cache` |
 | `ENABLE_RERANK` | Enable Cross-Encoder reranking | `false` |
 | `RERANK_MODEL` | Reranker model name | `cross-encoder/ms-marco-MiniLM-L-6-v2` |
+| `RERANK_DEVICE` | Reranker device (`cuda`, `cpu`, `mps`, empty=auto) | `cuda` |
 | `ENABLE_QUERY_EXPANSION` | Enable query expansion | `false` |
 | `QUERY_EXPANSION_TYPE` | Expansion type (`synonym`, `keyword`, `hyde`, `multi`) | `synonym` |
 | `QUERY_EXPANSION_MAX` | Maximum expanded queries | `3` |
@@ -287,6 +288,7 @@ SPARSE_TOP_K: "50"
 FINAL_TOP_K: "20"
 ENABLE_RERANK: "true"
 RERANK_MODEL: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+RERANK_DEVICE: "cuda"
 ENABLE_QUERY_EXPANSION: "true"
 QUERY_EXPANSION_TYPE: "multi"
 ```
@@ -325,9 +327,16 @@ Enable reranking for better result quality (adds 100-500ms latency):
 ```yaml
 ENABLE_RERANK: "true"
 RERANK_MODEL: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+RERANK_DEVICE: "cuda"  # Options: cuda, cpu, mps, or empty for auto
 ```
 
 **Note:** Requires `sentence-transformers` Python package.
+
+**Device Options:**
+- `cuda`: Use NVIDIA GPU (fastest, requires CUDA)
+- `cpu`: Use CPU only (saves GPU memory for LLM)
+- `mps`: Use Apple Silicon GPU (M1/M2/M3)
+- Empty or omitted: Auto-detect (prefers GPU if available)
 
 ### Persistent Volume Claims
 

@@ -58,6 +58,12 @@ class Settings(BaseSettings):
     # Reranking Configuration (Phase 3)
     enable_rerank: bool = Field(default=False, alias="ENABLE_RERANK")
     rerank_model: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2", alias="RERANK_MODEL")
+    rerank_device: str = Field(
+        default="cuda", alias="RERANK_DEVICE"
+    )  # cuda, cpu, mps, or empty for auto
+    rerank_device: str = Field(
+        default="cuda", alias="RERANK_DEVICE"
+    )  # cuda, cpu, mps, or None for auto
 
     # Query Expansion Configuration (Phase 3)
     enable_query_expansion: bool = Field(default=False, alias="ENABLE_QUERY_EXPANSION")

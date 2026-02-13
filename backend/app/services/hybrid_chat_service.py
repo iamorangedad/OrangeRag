@@ -54,6 +54,10 @@ class HybridChatService(ChatService):
         self._query_expander = None
         self._init_query_expander()
 
+        # Reranker (global instance shared across all conversations)
+        self._reranker = None
+        self._init_reranker()
+
         logger.info("[HybridChat] Initialized HybridChatService")
 
     def _init_query_expander(self) -> None:
@@ -90,6 +94,33 @@ class HybridChatService(ChatService):
 
         except Exception as e:
             logger.warning(f"[HybridChat] Failed to initialize query expander: {e}")
+
+    def _init_reranker(self) -> None:
+        """Initialize reranker based on configuration (global instance)."""
+        settings = get_settings()
+
+        if not settings.enable_rerank:
+            return
+
+        try:
+            from app.core.reranker import CrossEncoderReranker
+
+            self._reranker = CrossEncoderReranker(
+                model_name=settings.rerank_model,
+                device=settings.rerank_device if settings.rerank_device else None,
+            )
+            logger.info(
+                f"[HybridChat] Initialized CrossEncoderReranker with model: {settings.rerank_model}. "
+                "Model will be loaded on first use (lazy loading)."
+            )
+
+        except ImportError as e:
+            logger.warning(
+                f"[HybridChat] Failed to import CrossEncoderReranker: {e}. "
+                "Please install sentence-transformers to enable reranking."
+            )
+        except Exception as e:
+            logger.warning(f"[HybridChat] Failed to initialize reranker: {e}")
 
     def _load_documents(self) -> List[TextNode]:
         """
@@ -178,6 +209,11 @@ class HybridChatService(ChatService):
             sparse_weight=settings.sparse_weight,
             mode=settings.fusion_mode,
         )
+
+        # Set global reranker if enabled (shared across all conversations)
+        if self._reranker:
+            retriever.set_reranker(self._reranker)
+            logger.info("[HybridChat] Set global reranker for hybrid retriever")
 
         # Load and index documents
         nodes = self._load_documents()
