@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     app_version: str = Field(default="1.0.0", alias="APP_VERSION")
     debug: bool = Field(default=False, alias="DEBUG")
 
+    # Logging Configuration
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    log_format: str = Field(default="json", alias="LOG_FORMAT")
+    log_output: str = Field(default="console", alias="LOG_OUTPUT")
+    log_file_path: str = Field(default="/var/log/orangerag/app.log", alias="LOG_FILE_PATH")
+    log_file_max_bytes: int = Field(default=104857600, alias="LOG_FILE_MAX_BYTES")  # 100MB
+    log_file_backup_count: int = Field(default=10, alias="LOG_FILE_BACKUP_COUNT")
+
     # Hybrid RAG Configuration
     enable_hybrid_search: bool = Field(default=True, alias="ENABLE_HYBRID_SEARCH")
     dense_weight: float = Field(default=0.5, alias="DENSE_WEIGHT")
