@@ -113,4 +113,9 @@ def weighted_reciprocal_rank_fusion(
     # Sort and build results
     sorted_results = sorted(rrf_scores.items(), key=lambda x: x[1][0], reverse=True)
 
-    return [NodeWithScore(node=node.node, score=score) for _, (score, node) in sorted_results]
+    # Filter out zero-score results and build final list
+    return [
+        NodeWithScore(node=node.node, score=score)
+        for _, (score, node) in sorted_results
+        if score > 0
+    ]

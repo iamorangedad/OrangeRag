@@ -18,13 +18,17 @@ from fastapi.staticfiles import StaticFiles
 from app.config import get_settings
 from app.api import api_router
 from app.services import ChatService
+from app.core.logging_config import setup_logging, get_logger
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+# Configure structured logging using settings
+settings = get_settings()
+setup_logging(
+    level=settings.log_level,
+    log_format=settings.log_format,
+    output=settings.log_output,
+    file_path=settings.log_file_path
 )
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def setup_directories():

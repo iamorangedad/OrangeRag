@@ -11,8 +11,9 @@ from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
 from app.config import get_settings
 from app.core.vector_store import create_vector_store, VectorStoreProvider
 from app.services.model_service import ModelService
+from app.core.logging_config import get_logger, log_performance, log_error
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ChatService:
@@ -177,10 +178,18 @@ class ChatService:
             response = query_engine.query(message)
             query_time = time.time() - query_start
             
-            logger.info(f"[Chat] Query completed in {query_time:.2f}s")
+            log_performance(
+                logger, "Chat", "query_execution",
+                query_time * 1000,  # Convert to ms
+                conversation_id=conv_id
+            )
             
             total_time = time.time() - start_time
-            logger.info(f"[Chat] Total request time: {total_time:.2f}s - conv_id: {conv_id}")
+            log_performance(
+                logger, "Chat", "total_request",
+                total_time * 1000,  # Convert to ms
+                conversation_id=conv_id
+            )
             
             return {
                 "response": str(response),
@@ -188,9 +197,7 @@ class ChatService:
             }
             
         except Exception as e:
-            logger.error(f"[Chat] Error: {e}")
-            import traceback
-            logger.error(f"[Chat] Traceback: {traceback.format_exc()}")
+            log_error(logger, "Chat", e, conversation_id=conv_id)
             raise
     
     def clear_conversation(self, conversation_id: str) -> bool:

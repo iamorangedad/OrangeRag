@@ -127,11 +127,20 @@ class KeywordExpander(QueryExpander):
                 expansions.append(f"what is {query}")
                 expansions.append(f"how to {query}")
 
-        # Add formal/informal variations
-        if "how do I" in query.lower():
-            expansions.append(query.lower().replace("how do I", "how to"))
+        # Add "how to" prefix for non-question queries
+        if not self._is_question(query) and self.add_context_terms:
+            if not query.lower().startswith("how to "):
+                expansions.append(f"how to {query}")
+
+        # Add formal/informal variations for "how do I" / "how to"
+        if "how do I" in query or "how do i" in query.lower():
+            expansions.append(query.replace("how do I", "how to").replace("how do i", "how to"))
+            expansions.append(
+                query.replace("how do I", "how can I").replace("how do i", "how can i")
+            )
         elif "how to" in query.lower():
-            expansions.append(query.lower().replace("how to", "how do I"))
+            expansions.append(query.replace("how to", "how do I").replace("How to", "How do I"))
+            expansions.append(query.replace("how to", "how can I").replace("How to", "How can I"))
 
         return list(set(expansions))  # Remove duplicates
 
