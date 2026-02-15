@@ -21,8 +21,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from app.config import get_settings
 from app.core.vector_store import create_vector_store, VectorStoreProvider
 from app.services.model_service import ModelService
+from app.core.logging_config import get_logger, log_performance, log_error
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TaskStatus(str, Enum):
@@ -195,7 +196,7 @@ class AsyncIndexingService:
                 self._process_normal_document(task, file_path)
 
         except Exception as e:
-            logger.error(f"[AsyncIndexing] Task {task.task_id} failed: {e}")
+            log_error(logger, "AsyncIndexing", e, task_id=task.task_id)
             with self._task_lock:
                 task.status = TaskStatus.FAILED
                 task.message = f"Failed: {str(e)}"
