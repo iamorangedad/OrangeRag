@@ -34,8 +34,9 @@ from app.core.citation import (
 )
 from app.core.metadata import MetadataMatchResult
 from app.core.prompt import StrategicPromptBuilder, PromptContext
+from app.core.logging_config import get_logger, log_performance, log_error
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -384,9 +385,11 @@ class HybridChatService(ChatService):
                 citations = citation_retriever.retrieve(search_query, top_k=5)
 
             citation_time = time.time() - citation_start
-            logger.info(
-                f"[HybridChat] Citation retrieval completed in {citation_time:.2f}s, "
-                f"found {len(citations)} citations"
+            log_performance(
+                logger, "HybridChat", "citation_retrieval",
+                citation_time * 1000,  # Convert to ms
+                conversation_id=conv_id,
+                extra={"citations_found": len(citations)}
             )
 
             # Step 5: Hybrid RAG Retrieval (Layer 3)
@@ -394,9 +397,11 @@ class HybridChatService(ChatService):
             retrieve_start = time.time()
             hybrid_results: List[NodeWithScore] = retriever.retrieve(search_query)
             retrieve_time = time.time() - retrieve_start
-            logger.info(
-                f"[HybridChat] Hybrid retrieval completed in {retrieve_time:.2f}s, "
-                f"found {len(hybrid_results)} results"
+            log_performance(
+                logger, "HybridChat", "hybrid_retrieval",
+                retrieve_time * 1000,  # Convert to ms
+                conversation_id=conv_id,
+                extra={"results_found": len(hybrid_results)}
             )
 
             # Step 6: Build prompt using strategic builder
@@ -414,10 +419,18 @@ class HybridChatService(ChatService):
             llm_start = time.time()
             response_text = self._generate_response(prompt, model_name)
             llm_time = time.time() - llm_start
+            log_performance(
+                logger, "HybridChat", "llm_generation",
+                llm_time * 1000,  # Convert to ms
+                conversation_id=conv_id
+            )
 
             total_time = time.time() - start_time
-            logger.info(f"[HybridChat] LLM generation completed in {llm_time:.2f}s")
-            logger.info(f"[HybridChat] Total request time: {total_time:.2f}s - conv_id: {conv_id}")
+            log_performance(
+                logger, "HybridChat", "total_request",
+                total_time * 1000,  # Convert to ms
+                conversation_id=conv_id
+            )
 
             # Build response
             response = ChatResponse(
@@ -431,10 +444,7 @@ class HybridChatService(ChatService):
             return response
 
         except Exception as e:
-            logger.error(f"[HybridChat] Error: {e}")
-            import traceback
-
-            logger.error(f"[HybridChat] Traceback: {traceback.format_exc()}")
+            log_error(logger, "HybridChat", e, conversation_id=conv_id)
             raise
 
     def _generate_response(self, prompt: str, model_name: Optional[str] = None) -> str:
